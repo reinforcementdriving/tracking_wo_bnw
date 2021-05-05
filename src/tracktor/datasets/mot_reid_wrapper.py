@@ -1,30 +1,35 @@
-from torch.utils.data import Dataset
-import torch
+from torch.utils.data import Dataset, ConcatDataset
 
 from .mot_reid import MOTreID
 
 
 class MOTreIDWrapper(Dataset):
-	"""A Wrapper class for MOTSiamese.
+    """A Wrapper class for MOTSiamese.
 
-	Wrapper class for combining different sequences into one dataset for the MOTreID
-	Dataset.
-	"""
+    Wrapper class for combining different sequences into one dataset for the MOTreID
+    Dataset.
+    """
 
-	def __init__(self, split, dataloader):
+    def __init__(self, split, kwargs):
+        train_sequences = ['MOT17-02', 'MOT17-04', 'MOT17-05', 'MOT17-09',
+                           'MOT17-10', 'MOT17-11', 'MOT17-13']
 
-		train_folders = ['MOT17-02', 'MOT17-04', 'MOT17-05', 'MOT17-09', 'MOT17-10',
-				         'MOT17-11', 'MOT17-13']
+        if split == "train":
+            sequences = train_sequences
+        elif f"MOT17-{split}" in train_sequences:
+            sequences = [f"MOT17-{split}"]
+        else:
+            raise NotImplementedError("MOT split not available.")
 
-		self._dataloader = MOTreID(None, split=split, **dataloader)
+        dataset = []
+        for seq in sequences:
+            # dataset.append(MOTreID(seq, split=split, **kwargs))
+            dataset.append(MOTreID(seq, **kwargs))
 
-		for seq in train_folders:
-			d = MOTreID(seq, split=split, **dataloader)
-			for sample in d.data:
-				self._dataloader.data.append(sample)
+        self.split = ConcatDataset(dataset)
 
-	def __len__(self):
-		return len(self._dataloader.data)
+    def __len__(self):
+        return len(self.split)
 
-	def __getitem__(self, idx):
-		return self._dataloader[idx]
+    def __getitem__(self, idx):
+        return self.split[idx]

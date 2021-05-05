@@ -1,9 +1,11 @@
 
-from .mot_wrapper import MOT17Wrapper, MOT19Wrapper, MOT17LOWFPSWrapper, MOT20Wrapper
-from .mot_reid_wrapper import MOTreIDWrapper
-from .mot15_wrapper import MOT15Wrapper
-from .marcuhmot import MarCUHMOT
+from torch.utils.data import ConcatDataset
 
+from .marcuhmot import MarCUHMOT
+from .mot15_wrapper import MOT15Wrapper
+from .mot_reid_wrapper import MOTreIDWrapper
+from .mot_wrapper import (MOT17LOWFPSWrapper, MOT17PrivateWrapper,
+                          MOT17Wrapper, MOT19Wrapper, MOT20Wrapper)
 
 _sets = {}
 
@@ -11,7 +13,7 @@ _sets = {}
 # Fill all available datasets, change here to modify / add new datasets.
 for split in ['train', 'test', 'all', '01', '02', '03', '04', '05', '06', '07', '08', '09',
               '10', '11', '12', '13', '14']:
-    for dets in ['DPM16', 'DPM_RAW16', 'DPM17', 'FRCNN17', 'SDP17', '17', '']:
+    for dets in ['DPM16', 'DPM', 'FRCNN', 'SDP', 'ALL']:
         name = f'mot17_{split}_{dets}'
         _sets[name] = (lambda *args, split=split,
                        dets=dets: MOT17Wrapper(split, dets, *args))
@@ -31,7 +33,8 @@ for split in ['1', '2', '3', '5', '6', '10', '15', '30']:
     name = f'mot17_{split}_fps'
     _sets[name] = (lambda *args, split=split: MOT17LOWFPSWrapper(split, *args))
 
-for split in ['train', 'small_val', 'small_train']:
+# for split in ['train', 'small_val', 'small_train']:
+for split in ['train', '02', '04', '05', '09', '10', '11','13',]:
     name = f'mot_reid_{split}'
     _sets[name] = (lambda *args, split=split: MOTreIDWrapper(split, *args))
 
@@ -51,22 +54,30 @@ class Datasets(object):
     can be accessed.
     """
 
-    def __init__(self, dataset, *args):
+    def __init__(self, datasets, *args):
         """Initialize the corresponding dataloader.
 
         Keyword arguments:
         dataset --  the name of the dataset
         args -- arguments used to call the dataloader
         """
-        assert dataset in _sets, "[!] Dataset not found: {}".format(dataset)
+        if isinstance(datasets, str):
+            datasets = [datasets]
 
         if len(args) == 0:
             args = [{}]
 
-        self._data = _sets[dataset](*args)
+        self.datasets = None
+        for dataset in datasets:
+            assert dataset in _sets, f"[!] Dataset not found: {dataset}"
+
+            if self.datasets is None:
+                self.datasets = _sets[dataset](*args)
+            else:
+                self.datasets = ConcatDataset([self.datasets, _sets[dataset](*args)])
 
     def __len__(self):
-        return len(self._data)
+        return len(self.datasets)
 
     def __getitem__(self, idx):
-        return self._data[idx]
+        return self.datasets[idx]
